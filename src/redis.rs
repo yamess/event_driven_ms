@@ -1,5 +1,6 @@
-use redis::{Commands, Connection};
-use redis::streams::{StreamReadOptions, StreamReadReply};
+use redis::{Commands, Connection, FromRedisValue};
+use redis::streams::{StreamPendingReply, StreamReadOptions, StreamReadReply};
+use crate::schemas::StreamResponse;
 use crate::errors::Result;
 use serde::Serialize;
 
@@ -36,13 +37,19 @@ impl RedisStream{
         Ok(())
     }
 
-    pub fn read(&mut self, stream: &str, group: &str, consumer: &str) -> Result<StreamReadReply> {
+    pub fn read<T>(
+        &mut self, stream: &str, group: &str, consumer: &str, count: usize
+    ) -> Result<Vec<StreamResponse<T>>>
+    where
+        T: serde::de::DeserializeOwned,
+    {
         let opts = StreamReadOptions::default()
             .group(group, consumer)
-            .count(3)
+            .count(count)
             .block(0);
         let result: StreamReadReply = self.conn.xread_options(&[stream], &[">"], &opts).unwrap();
-        Ok(result)
+        let payloads = self.convert_from_redis::<T>(result).unwrap();
+        Ok(payloads)
     }
 
     pub fn ack(&mut self, stream: &str, group: &str, id: &str) -> Result<()> {
@@ -51,10 +58,26 @@ impl RedisStream{
         Ok(())
     }
 
-    pub fn pending(&mut self, stream: &str, group: &str) -> Result<()> {
-        let result: i64 = self.conn.xpending(stream, group).unwrap();
-        println!("Pending messages in group {}: {}", group, result);
-        Ok(())
+    pub fn pending(&mut self, stream: &str, group: &str) -> Result<StreamPendingReply> {
+        let result: StreamPendingReply = self.conn.xpending(stream, group).unwrap();
+        println!("Pending messages in group {}: {:?}", group, result);
+        Ok(result)
+    }
+
+    fn convert_from_redis<T>(&self, value: StreamReadReply) -> Result<Vec<StreamResponse<T>>>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let mut payloads: Vec<StreamResponse<T>> = Vec::new();
+        let raw_payloads = value.keys[0].ids.clone();
+        for raw in raw_payloads {
+            let id = raw.id.clone();
+            let data = raw.map.get("message").unwrap().clone();
+            let data = String::from_redis_value(&data).unwrap();
+            let data = serde_json::from_str::<T>(&data).unwrap();
+            payloads.push(StreamResponse { id, data });
+        }
+        Ok(payloads)
     }
 }
 

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BlobPayload {
@@ -7,7 +8,8 @@ pub struct BlobPayload {
     pub extension: String,
 }
 
-pub struct StreamResponse{
-    id: String,
-    data: BlobPayload
+#[derive(Debug)]
+pub struct StreamResponse<T: DeserializeOwned>{
+    pub id: String,
+    pub data: T
 }
