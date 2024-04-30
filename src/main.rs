@@ -1,8 +1,7 @@
 use std::thread;
-use ::redis::streams::{StreamId, StreamPendingReply, StreamReadReply};
 use ::redis::{FromRedisValue, Value};
 use crate::redis::RedisStream;
-use crate::schemas::{BlobPayload, StreamResponse};
+use crate::schemas::BlobPayload;
 
 mod redis;
 mod errors;
@@ -13,19 +12,60 @@ mod schemas;
 async fn main() {
     println!("Server started ...!");
 
-    let mut stream = RedisStream::new();
-    let result: StreamPendingReply = stream.pending("stream", "group").unwrap();
-    let result = match result {
-        StreamPendingReply::Data(data) => data,
-        StreamPendingReply::Empty => {
-            println!("No pending messages");
-            return;
-        }
-    };
-    println!("Pending messages: {:?}", result);
-    result.consumers.iter().for_each(|consumer| {
-        println!("Consumer: {:?}", consumer);
-    });
+    let mut handlers = Vec::new();
+
+    handlers.push(
+        thread::spawn(move || {
+            let mut stream = RedisStream::new();
+
+            let mut start_id = "0-0".to_string();
+            loop {
+                let result = stream.auto_claim::<BlobPayload>(
+                    "stream",
+                    "group",
+                    "consumer",
+                    0,
+                    start_id,
+                    1
+                ).unwrap();
+
+                start_id = result.0.clone();
+                let payload = result.1[0].data.clone();
+                let id = result.1[0].id.clone();
+                println!("Auto Claimed message. Id: {} - Payload: {:?}", result.0, payload);
+
+                // Acknowledge the message
+                stream.ack("stream", "group", &id).unwrap();
+
+                // thread::sleep(std::time::Duration::from_secs(3));
+            }
+        })
+    );
+        // let result = stream.pending("stream", "group", 50000000).unwrap();
+    // let result = match result {
+    //     StreamPendingReply::Data(data) => data,
+    //     StreamPendingReply::Empty => {
+    //         println!("No pending messages");
+    //         return;
+    //     }
+    // };
+    // println!("Number of Pending messages: {:?}", result.count);
+    //
+    // result.consumers.iter().for_each(|consumer| {
+    //     println!("Consumer: {:?}", consumer);
+    // });
+    // println!("Auto Claiming messages ...!");
+    // let result = stream.auto_claim::<BlobPayload>("stream", "group", "consumer", 1).unwrap();
+    // println!("Auto Claimed messages: {:?}", result.len());
+    // for pay in result {
+    //     println!("id: {} map: {:?}", pay.id, pay.data);
+    //     stream.ack("stream", "group", &pay.id).unwrap();
+    // }
+    //
+    //
+    // let result = stream.claim::<BlobPayload>("stream", "group", "consumer", 0, "0").unwrap();
+    // println!("Claimed messages: {:?}", result);
+    //
     // let data = result.start_id;
     // let mut handlers = Vec::new();
     //
@@ -82,8 +122,8 @@ async fn main() {
     //     }
     // }));
     //
-    // for handler in handlers {
-    //     handler.join().unwrap();
-    // }
+    for handler in handlers {
+        handler.join().unwrap();
+    }
 
 }
