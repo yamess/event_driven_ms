@@ -1,4 +1,3 @@
-use redis::streams::{StreamClaimReply, StreamReadReply};
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 
@@ -9,14 +8,16 @@ pub struct BlobPayload {
     pub extension: String,
 }
 
-pub enum StreamResult{
-    Read(StreamReadReply),
-    Claim(StreamClaimReply),
-}
-
 #[derive(Debug)]
-pub struct StreamResponse<T: DeserializeOwned>{
+pub struct StreamResult<T: DeserializeOwned>{
     pub id: String,
     pub data: T
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StreamPendingResult{
+    pub id: String,
+    pub consumer: String,
+    pub idle: usize,
+    pub delivery_count: usize
+}
