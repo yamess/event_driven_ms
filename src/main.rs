@@ -1,18 +1,8 @@
-use std::thread;
-use ::redis::{FromRedisValue, Value};
-use ::redis::streams::StreamPendingReply;
-use crate::redis::RedisStream;
-use crate::schemas::{BlobPayload, StreamResponse};
+use event_driven_ms::run_server;
 
-// mod redis;
-// mod errors;
-// mod schemas;
-
-
-#[tokio::main]
-async fn main() {
-    println!("Server started ...!");
-
+#[actix_web::main]
+async fn main() -> std::io::Result<()>{
+    run_server().await
     // let mut handlers = Vec::new();
 
     // handlers.push(
@@ -51,8 +41,8 @@ async fn main() {
     //     })
     // );
     //
-    let mut stream = RedisStream::new();
-    let result = stream.pending("stream", "group", 3000, 15).unwrap();
+    // let mut stream = RedisStream::new();
+    // let result = stream.pending("stream", "group", 3000, 15).unwrap();
     // let result = match result {
     //     StreamPendingReply::Data(data) => data,
     //     StreamPendingReply::Empty => {

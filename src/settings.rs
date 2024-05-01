@@ -66,18 +66,18 @@ impl RedisConfig {
 
 // Config
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct Config {
+pub struct GlobalConfig {
     pub server: ServerConfig,
     pub logger: LoggerConfig,
     pub redis: RedisConfig,
 }
 
-impl Config {
-    pub fn new() -> Config {
+impl GlobalConfig {
+    pub fn new() -> Self {
         let server = ServerConfig::new();
         let logger = LoggerConfig::new();
         let redis = RedisConfig::new();
-        Config {
+        Self {
             server,
             logger,
             redis,
