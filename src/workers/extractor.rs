@@ -9,13 +9,17 @@ use crate::workers::messages::StartWorker;
 
 pub struct ExtractorWorker {
     pub stream: RedisStream,
+    pub stream_name: String,
+    pub group: String,
+    pub consumer: String,
+    pub count: usize,
 }
 
 impl Actor for ExtractorWorker {
     type Context = SyncContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        log::info!("Extractor worker started!");
+        log::info!("{} worker started!", self.consumer);
         ctx.address().do_send(StartWorker);
     }
 
@@ -29,13 +33,11 @@ impl Handler<StartWorker> for ExtractorWorker {
 
     fn handle(&mut self, _msg: StartWorker, _ctx: &mut Self::Context) -> Self::Result {
         loop {
-            let th = std::thread::current();
-            log::info!("Processing from Thread id: {:?}", th.id());
             let payload: Result<Vec<StreamResult<BlobPayload>>> = self.stream.read(
-                "stream",
-                "group",
-                "consumer",
-                1
+                self.stream_name.as_str(),
+                self.group.as_str(),
+                self.consumer.as_str(),
+                self.count
             );
             let payload = match payload {
                 Ok(payload) => {
@@ -50,17 +52,21 @@ impl Handler<StartWorker> for ExtractorWorker {
                     continue;
                 }
             };
-            let result = payload[0].data.clone();
-            let id = payload[0].id.clone();
-            log::info!("Thread: {:?} - Processing payload: {:?}", th.id(), result);
 
-            let result= self.stream.ack("stream", "group", id.as_str());
-            match result {
-                Ok(_) => log::info!("Message acknowledged"),
-                Err(e) => log::error!("Failed to acknowledge message: {:?}", e)
-            }
+            payload.iter().for_each(|p| {
+                let data = p.data.clone();
+                let id = p.id.clone();
 
-            //std::thread::sleep(std::time::Duration::from_secs(2));
+                // Processing of the data step goes here...
+                log::info!("{} processing message {} data: {:?}", self.consumer, id, data);
+
+                // Now tha the data has been processed, we can acknowledge the message
+                let result= self.stream.ack("stream", "group", id.as_str());
+                match result {
+                    Ok(_) => log::info!("Message acknowledged"),
+                    Err(e) => log::error!("Failed to acknowledge message: {:?}", e)
+                }
+            });
         }
     }
 }

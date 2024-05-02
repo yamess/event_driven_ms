@@ -830,6 +830,7 @@ dependencies = [
  "log-mdc",
  "log4rs",
  "redis",
+ "regex",
  "serde",
  "serde_json",
  "thiserror",

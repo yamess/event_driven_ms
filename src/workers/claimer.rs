@@ -1,4 +1,5 @@
 use std::process;
+use std::sync::{Arc, RwLock};
 use std::thread::ThreadId;
 use actix::{Actor, AsyncContext, Context, ContextFutureSpawner, Handler, ResponseFuture, SyncContext, WrapFuture};
 use tokio::task::block_in_place;
@@ -14,14 +15,20 @@ use redis::ToRedisArgs;
 
 #[derive(Debug, Clone)]
 pub struct ClaimerWorker{
-    pub config: RedisConfig
+    pub config: RedisConfig,
+    pub stream: String,
+    pub group: String,
+    pub consumer: String,
+    pub min_idle: usize,
+    pub start_id: String,
+    pub count: usize,
 }
 
 impl Actor for ClaimerWorker{
     type Context = SyncContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        log::info!("Claimer worker started");
+        log::info!("{} worker started", self.consumer);
         ctx.address().do_send(StartWorker);
     }
 
@@ -34,23 +41,17 @@ impl Handler<StartWorker> for ClaimerWorker{
     type Result = ResponseFuture<()>;
 
     fn handle(&mut self, _msg: StartWorker, _ctx: &mut Self::Context) -> Self::Result {
-
         let mut client = RedisStream::new(self.config.clone()).unwrap();
-
         block_on(async move {
-            // let th = std::thread::current();
-            let pr = process::id();
-            log::info!("Claimer worker started on process: {:?}", pr);
-
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(3));
                 let raw = client.auto_claim::<BlobPayload>(
-                    "stream",
-                    "group",
-                    "consumer",
-                    3000,
-                    "0-0",
-                    10
+                    self.stream.as_str(),
+                    self.group.as_str(),
+                    self.consumer.as_str(),
+                    self.min_idle,
+                    self.start_id.as_str(),
+                    self.count
                 );
 
                 let payload = match raw {
@@ -68,7 +69,7 @@ impl Handler<StartWorker> for ClaimerWorker{
                 payload.iter().for_each(|p| {
                     let data: BlobPayload = p.data.clone();
                     let id: String = p.id.clone();
-                    log::info!("Auto Claimed message. Id: {} - Payload: {:?}", id, data);
+                    log::info!("{} processing message {} data: {:?}", self.consumer, id, data);
                     let ack = client.ack("stream", "group", &id);
                     match ack {
                         Ok(_) => log::info!("Message acknowledged"),
