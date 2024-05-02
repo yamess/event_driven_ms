@@ -35,14 +35,18 @@ impl Handler<StartWorker> for ClaimerWorker{
         let mut client = RedisStream::new(self.config.clone()).unwrap();
 
         block_on(async move {
-                loop {
+            let th = std::thread::current();
+            log::info!("Claimer worker started on thread: {:?}", th.id());
+
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(3));
                 let raw = client.auto_claim::<BlobPayload>(
                     "stream",
                     "group",
                     "consumer",
-                    5000,
+                    3000,
                     "0-0",
-                    1
+                    10
                 );
 
                 let payload = match raw {
@@ -54,9 +58,9 @@ impl Handler<StartWorker> for ClaimerWorker{
                 };
 
                 if payload.len() == 0 {
-                    log::info!("No messages to claim");
                     continue;
                 }
+
 
                 let data: BlobPayload = payload[0].data.clone();
                 let id: String = payload[0].id.clone();
