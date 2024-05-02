@@ -1,10 +1,13 @@
 use actix::{Actor, AsyncContext, Context, ContextFutureSpawner, Handler, ResponseFuture, SyncContext, WrapFuture};
+use tokio::task::block_in_place;
 use crate::interfaces::IStreaming;
 use crate::redis::RedisStream;
 use crate::schemas::{BlobPayload, StreamResult};
 use crate::workers::messages::StartWorker;
 use crate::errors::Error;
 use crate::settings::RedisConfig;
+use futures::executor::block_on;
+
 
 #[derive(Debug, Clone)]
 pub struct ClaimerWorker{
@@ -31,8 +34,7 @@ impl Handler<StartWorker> for ClaimerWorker{
 
         let mut client = RedisStream::new(self.config.clone()).unwrap();
 
-        Box::pin(async move {
-            actix_rt::spawn(async move {
+        block_on(async move {
                 loop {
                 let raw = client.auto_claim::<BlobPayload>(
                     "stream",
@@ -67,9 +69,6 @@ impl Handler<StartWorker> for ClaimerWorker{
                     Err(e) => log::error!("Failed to acknowledge message: {:?}", e)
                 }
             }
-            });
-
         })
-
     }
 }

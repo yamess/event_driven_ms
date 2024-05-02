@@ -37,11 +37,10 @@ pub async fn run_server() -> std::io::Result<()> {
         ExtractorWorker { stream }
     });
 
-    // let _ = SyncArbiter::start(2,  move || {
-    //     let config = GlobalConfig::new();
-    //     ClaimerWorker { config: config.redis.clone() }
-    // });
-
+    let _ = SyncArbiter::start(1,  move || {
+        let config = GlobalConfig::new();
+        ClaimerWorker { config: config.redis.clone() }
+    });
 
     // let addr = ClaimerWorker { config: state.config.redis.clone() }.start();
     // addr.do_send(StartWorker);
