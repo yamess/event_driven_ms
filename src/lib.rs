@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::process;
+use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 use actix::{Actor, SyncArbiter};
 use actix_web::{App, HttpServer, web};
 use crate::app_state::AppState;
@@ -37,7 +39,7 @@ pub async fn run_server() -> std::io::Result<()> {
         ExtractorWorker { stream }
     });
 
-    let _ = SyncArbiter::start(1,  move || {
+    let _ = SyncArbiter::start(3,  move || {
         let config = GlobalConfig::new();
         ClaimerWorker { config: config.redis.clone() }
     });
@@ -45,7 +47,12 @@ pub async fn run_server() -> std::io::Result<()> {
     // let addr = ClaimerWorker { config: state.config.redis.clone() }.start();
     // addr.do_send(StartWorker);
 
+    let index = Arc::new(RwLock::new(0));
+    let index_clone = index.clone();
+
     HttpServer::new(move || {
+       let pr = process::id();
+        log::info!("Workers process: {:?}", pr);
         App::new()
             .app_data(state.clone())
             .service(handlers::produce)

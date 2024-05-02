@@ -1,3 +1,5 @@
+use std::process;
+use std::thread::ThreadId;
 use actix::{Actor, AsyncContext, Context, ContextFutureSpawner, Handler, ResponseFuture, SyncContext, WrapFuture};
 use tokio::task::block_in_place;
 use crate::interfaces::IStreaming;
@@ -7,6 +9,7 @@ use crate::workers::messages::StartWorker;
 use crate::errors::Error;
 use crate::settings::RedisConfig;
 use futures::executor::block_on;
+use redis::ToRedisArgs;
 
 
 #[derive(Debug, Clone)]
@@ -35,8 +38,9 @@ impl Handler<StartWorker> for ClaimerWorker{
         let mut client = RedisStream::new(self.config.clone()).unwrap();
 
         block_on(async move {
-            let th = std::thread::current();
-            log::info!("Claimer worker started on thread: {:?}", th.id());
+            // let th = std::thread::current();
+            let pr = process::id();
+            log::info!("Claimer worker started on process: {:?}", pr);
 
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(3));
