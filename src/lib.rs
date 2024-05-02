@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use actix::SyncArbiter;
+use actix::{SyncArbiter};
 use actix_web::{App, HttpServer, web};
 use crate::app_state::AppState;
 use crate::interfaces::IStreaming;
@@ -16,6 +16,7 @@ pub mod settings;
 pub mod interfaces;
 mod workers;
 mod app_state;
+mod handlers;
 
 pub async fn run_server() -> std::io::Result<()> {
     dotenv::dotenv().ok();
@@ -26,17 +27,18 @@ pub async fn run_server() -> std::io::Result<()> {
 
     // Create stream and groups
     let mut stream = RedisStream::new(state.config.redis.clone()).unwrap();
-    //stream.create_stream("stream").unwrap();
     stream.create_group("stream", "group");
 
-    let _ = SyncArbiter::start(1,  move || {
-       let config = GlobalConfig::new();
+    let _ = SyncArbiter::start(3,  move || {
+        let config = GlobalConfig::new();
         let stream = RedisStream::new(config.redis.clone()).unwrap();
         ExtractorWorker { stream }
     });
 
     HttpServer::new(move || {
         App::new()
+            .app_data(state.clone())
+            .service(handlers::produce)
     })
     .bind(format!("{}:{}", server_config.host, server_config.port))?
     .run()

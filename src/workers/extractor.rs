@@ -1,6 +1,5 @@
 use std::thread::Thread;
-use actix::{Actor, Context, Handler, SyncContext};
-use actix::fut::result;
+use actix::{Actor, Handler, SyncContext};
 use log4rs::Handle;
 use crate::errors::Result;
 use crate::interfaces::IStreaming;
@@ -30,6 +29,8 @@ impl Handler<StartWorker> for ExtractorWorker {
 
     fn handle(&mut self, _msg: StartWorker, _ctx: &mut Self::Context) -> Self::Result {
         loop {
+            let th = std::thread::current();
+            log::info!("Processing from Thread id: {:?}", th.id());
             let payload: Result<Vec<StreamResult<BlobPayload>>> = self.stream.read(
                 "stream",
                 "group",
@@ -51,8 +52,7 @@ impl Handler<StartWorker> for ExtractorWorker {
             };
             let result = payload[0].data.clone();
             let id = payload[0].id.clone();
-            log::info!("Processing payload: {:?}", result);
-            log::info!("Payload: {:?}", result);
+            log::info!("Thread: {:?} - Processing payload: {:?}", th.id(), result);
 
             let result= self.stream.ack("stream", "group", id.as_str());
             match result {
