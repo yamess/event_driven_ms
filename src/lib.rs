@@ -1,12 +1,14 @@
 use std::sync::Arc;
-use actix::{SyncArbiter};
+use actix::{Actor, SyncArbiter};
 use actix_web::{App, HttpServer, web};
 use crate::app_state::AppState;
 use crate::interfaces::IStreaming;
 use crate::logger::init_logger;
 use crate::redis::RedisStream;
 use crate::settings::GlobalConfig;
+use crate::workers::claimer::ClaimerWorker;
 use crate::workers::extractor::ExtractorWorker;
+use crate::workers::messages::StartWorker;
 
 pub mod redis;
 pub mod errors;
@@ -34,6 +36,15 @@ pub async fn run_server() -> std::io::Result<()> {
         let stream = RedisStream::new(config.redis.clone()).unwrap();
         ExtractorWorker { stream }
     });
+
+    // let _ = SyncArbiter::start(2,  move || {
+    //     let config = GlobalConfig::new();
+    //     ClaimerWorker { config: config.redis.clone() }
+    // });
+
+
+    // let addr = ClaimerWorker { config: state.config.redis.clone() }.start();
+    // addr.do_send(StartWorker);
 
     HttpServer::new(move || {
         App::new()

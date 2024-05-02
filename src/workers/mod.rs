@@ -1,3 +1,4 @@
 pub mod extractor;
-mod messages;
+pub mod messages;
 mod producer;
+pub mod claimer;
