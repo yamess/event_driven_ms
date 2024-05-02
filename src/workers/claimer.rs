@@ -61,17 +61,16 @@ impl Handler<StartWorker> for ClaimerWorker{
                     continue;
                 }
 
-
-                let data: BlobPayload = payload[0].data.clone();
-                let id: String = payload[0].id.clone();
-
-                log::info!("Auto Claimed message. Id: {} - Payload: {:?}", id, data);
-
-                let ack = client.ack("stream", "group", &id);
-                match ack {
-                    Ok(_) => log::info!("Message acknowledged"),
-                    Err(e) => log::error!("Failed to acknowledge message: {:?}", e)
-                }
+                payload.iter().for_each(|p| {
+                    let data: BlobPayload = p.data.clone();
+                    let id: String = p.id.clone();
+                    log::info!("Auto Claimed message. Id: {} - Payload: {:?}", id, data);
+                    let ack = client.ack("stream", "group", &id);
+                    match ack {
+                        Ok(_) => log::info!("Message acknowledged"),
+                        Err(e) => log::error!("Failed to acknowledge message: {:?}", e)
+                    }
+                });
             }
         })
     }
