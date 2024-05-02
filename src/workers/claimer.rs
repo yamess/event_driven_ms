@@ -32,7 +32,8 @@ impl Handler<StartWorker> for ClaimerWorker{
         let mut client = RedisStream::new(self.config.clone()).unwrap();
 
         Box::pin(async move {
-            loop {
+            actix_rt::spawn(async move {
+                loop {
                 let raw = client.auto_claim::<BlobPayload>(
                     "stream",
                     "group",
@@ -66,6 +67,8 @@ impl Handler<StartWorker> for ClaimerWorker{
                     Err(e) => log::error!("Failed to acknowledge message: {:?}", e)
                 }
             }
+            });
+
         })
 
     }
