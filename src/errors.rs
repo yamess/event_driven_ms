@@ -9,6 +9,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("Failed serialization. Cause: {0}")]
     Serialization(String),
+    #[error("Key {key} not found in hashmap")]
+    HashMapKeyNotFound{key: String, cause: String},
     #[error("Payload parsing failed. Cause: {0}")]
     Parsing(String),
     #[error("Redis connection failed. Cause: {0}")]
@@ -21,7 +23,7 @@ pub enum Error {
     ClaimStreamMessage(String),
     #[error("Failed to get pending messages. Cause: {0}")]
     PendingStreamMessage(String),
-    #[error("Failed to delete stream message". Cause: {0})]
+    #[error("Failed to delete stream message. Cause: {0}")]
     DeleteStreamMessage(String),
     #[error("Failed to acknowledge message. Cause: {0}")]
     AckStreamMessage(String),

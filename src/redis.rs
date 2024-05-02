@@ -9,7 +9,6 @@ use crate::settings::RedisConfig;
 use serde::Serialize;
 use crate::interfaces::{IStreaming};
 
-
 pub struct RedisStream{
     conn: Connection
 }
@@ -51,7 +50,7 @@ impl RedisStream{
                     log::error!(
                         "Failed to parse message data with id: {}, data {:?}: {:?}",id,data,e
                     );
-                    return Err(Error::Parsing(e.into()))
+                    return Err(Error::Parsing(e.to_string()))
                 }
             };
             let data = serde_json::from_str::<T>(&data).unwrap();
@@ -71,20 +70,24 @@ impl IStreaming for RedisStream{
             Ok(id) => id,
             Err(e) => {
                 log::error!("Failed to create stream: {:?}", e);
-                return Err(Error::AddStreamMessage(e.into()))
+                return Err(Error::AddStreamMessage(e.to_string()))
             }
         };
-        let result = self.conn.xdel(stream, &[id.clone()]);
+        let result: RedisResult<String> = self.conn.xdel(stream, &[id.clone()]);
         match result {
-            Ok(_) => log::info!("Stream {} created successfully", stream),
+            Ok(_) => {
+                log::info!("Stream {} created successfully", stream);
+                Ok(())
+            },
             Err(e) => {
                 log::error!("Failed to delete message from stream creation: {:?}", e);
-                return Err(Error::DeleteStreamMessage(e.into()))
+                return Err(Error::DeleteStreamMessage(e.to_string()))
             }
         }
     }
     fn create_group(&mut self, stream: &str, group: &str) {
-        let _: () = match self.conn.xgroup_create(stream, group, "$") {
+        let result: RedisResult<()> = self.conn.xgroup_create_mkstream(stream, group, "$");
+        let _: () = match result {
             Ok(_) => log::info!("Created consumer group {} for stream {}", group, stream),
             Err(e) => {
                 log::warn!("Failed to create consumer group: {:?}", e);
@@ -97,7 +100,7 @@ impl IStreaming for RedisStream{
             Ok(payload) => payload,
             Err(e) => {
                 log::error!("Failed to serialize payload: {:?}", e);
-                return Err(Error::Serialization(e.into()))
+                return Err(Error::Serialization(e.to_string()))
             }
         };
         let result: RedisResult<String> = self.conn.xadd(stream, "*", &[("message", payload)]);
@@ -105,7 +108,7 @@ impl IStreaming for RedisStream{
             Ok(id) => log::debug!("Added message {} to stream {}", id, stream),
             Err(e) => {
                 log::error!("Failed to add message to stream: {:?}", e);
-                return Err(Error::AddStreamMessage(e.into()))
+                return Err(Error::AddStreamMessage(e.to_string()))
             }
         }
         Ok(())
@@ -128,7 +131,7 @@ impl IStreaming for RedisStream{
             Ok(result) => result,
             Err(e) => {
                 log::error!("Failed to read from stream: {:?}", e);
-                return Err(Error::ReadStreamMessage(e.into()))
+                return Err(Error::ReadStreamMessage(e.to_string()))
             }
         };
 
@@ -141,11 +144,12 @@ impl IStreaming for RedisStream{
     }
 
     fn ack(&mut self, stream: &str, group: &str, id: &str) -> Result<()> {
-        let _: () = match self.conn.xack(stream, group, &[id]){
+        let result: RedisResult<usize> = self.conn.xack(stream, group, &[id]);
+        let _: () = match result {
             Ok(_) => log::debug!("Acknowledged message with id {} from stream {}", id, stream),
             Err(e) => {
                 log::error!("Failed to acknowledge message: {:?}", e);
-                return Err(Error::AckStreamMessage(e.into()))
+                return Err(Error::AckStreamMessage(e.to_string()))
             }
         };
         Ok(())
@@ -169,7 +173,7 @@ impl IStreaming for RedisStream{
             Ok(result) => result,
             Err(e) => {
                 log::error!("Failed to get pending messages: {:?}", e);
-                return Err(Error::PendingStreamMessage(e.into()))
+                return Err(Error::PendingStreamMessage(e.to_string()))
             }
         };
 
@@ -198,7 +202,7 @@ impl IStreaming for RedisStream{
         group: &str,
         consumer: &str,
         min_idle_time: usize,
-        start_id: String,
+        start_id: &str,
         count: usize
     ) -> Result<Vec<StreamResult<T>>>
         where
@@ -212,7 +216,7 @@ impl IStreaming for RedisStream{
                 .arg(group)
                 .arg(consumer)
                 .arg(min_idle_time)
-                .arg(start_id.as_str())
+                .arg(start_id)
                 .arg("COUNT")
                 .arg(count)
                 .query(&mut self.conn);
@@ -221,7 +225,7 @@ impl IStreaming for RedisStream{
             Ok(result) => result,
             Err(e) => {
                 log::error!("Failed to claim messages from stream {}: {:?}", stream, e);
-                return Err(Error::ClaimStreamMessage(e.into()))
+                return Err(Error::ClaimStreamMessage(e.to_string()))
             }
         };
 
@@ -230,9 +234,24 @@ impl IStreaming for RedisStream{
         let mut res = Vec::new();
         for result in results {
             for (id, map) in result {
-                let data = map.get("message").unwrap_or_default().clone();
+                let data = match map.get("message") {
+                    Some(data) => data,
+                    None => {
+                        log::error!("Failed to get message data with id: {}", id);
+                        return Err(Error::HashMapKeyNotFound{
+                            key: "message".to_string(),
+                            cause: "Failed to get message data".to_string()
+                        });
+                    }
+                };
                 let data = String::from_str(&data).unwrap_or_default();
-                let data = serde_json::from_str::<T>(&data)?;
+                let data = match serde_json::from_str::<T>(&data) {
+                    Ok(data) => data,
+                    Err(e) => {
+                        log::error!("Failed to parse message data with id: {}, data {:?}: {:?}",id,data,e);
+                        return Err(Error::Parsing("Failed to parse message data".to_string()))
+                    }
+                };
                 res.push(StreamResult { id, data });
             }
         }

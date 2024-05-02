@@ -10,7 +10,7 @@ pub struct LoggerConfig {
 impl Default for LoggerConfig {
     fn default() -> Self {
         LoggerConfig {
-            file_path: "logs/crawler.log".to_string(),
+            file_path: "/tmp/eds.json".to_string(),
             file_size: 1024 * 1024 * 10,
             file_count: 5,
         }
@@ -34,7 +34,7 @@ impl Default for ServerConfig {
         log::info!("No server configuration provided, using default values");
         ServerConfig {
             host: "0.0.0.0".to_string(),
-            port: 8080,
+            port: 8181,
         }
     }
 }
