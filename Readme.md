@@ -2,6 +2,8 @@
 
 This is a simple example of an event driven microservice using Redis Stream as the message broker and actor model for processing the messages in parallele.
 
+In this case I'm using actix actor
+
 ## Dependencies
 
 ### Environment variables
