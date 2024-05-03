@@ -1,6 +1,6 @@
 # Event Driven Microservice
 
-This is a simple example of an event driven microservice using Redis Stream as the message broker and actor model for processing the messages.
+This is a simple example of an event driven microservice using Redis Stream as the message broker and actor model for processing the messages in parallele.
 
 ## Dependencies
 
