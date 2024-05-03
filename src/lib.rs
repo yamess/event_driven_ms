@@ -3,6 +3,7 @@ use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use actix::{Actor, SyncArbiter};
 use actix_web::{App, HttpServer, web};
+use num_cpus;
 use crate::app_state::AppState;
 use crate::helpers::get_consumer_name;
 use crate::interfaces::IStreaming;
@@ -65,10 +66,13 @@ pub async fn run_server() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
+            .wrap(actix_web::middleware::Logger::default())
             .app_data(state.clone())
             .service(handlers::produce)
+            .service(handlers::healthz)
     })
-    .bind(format!("{}:{}", server_config.host, server_config.port))?
-    .run()
-    .await
+        .bind(format!("{}:{}", server_config.host, server_config.port))?
+        .workers(num_cpus::get_physical() - 1)
+        .run()
+        .await
 }

@@ -829,6 +829,7 @@ dependencies = [
  "log",
  "log-mdc",
  "log4rs",
+ "num_cpus",
  "redis",
  "regex",
  "serde",

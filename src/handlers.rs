@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, post, Responder, web};
+use actix_web::{get, HttpResponse, post, Responder, web};
 use crate::app_state::AppState;
 use crate::interfaces::IStreaming;
 use crate::schemas::BlobPayload;
@@ -25,4 +25,9 @@ async fn produce(data: web::Data<AppState>) -> Result<impl Responder> {
         }
     }
 
+}
+
+#[get("/healthz")]
+async fn healthz() -> Result<impl Responder> {
+    Ok(HttpResponse::Ok().json("OK"))
 }

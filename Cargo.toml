@@ -21,3 +21,4 @@ serde_json = "1.0.116"
 thiserror = "1.0.59"
 tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "macros"] }
 regex = "1.10.4"
+num_cpus = "1.16.0"
